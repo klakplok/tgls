@@ -10,8 +10,14 @@
 open Ctypes
 open Foreign
 
-let abi = Libffi_abi.(if Sys.win32 then stdcall else default_abi)
-let foreign ?from ?stub ?check_errno ?release_runtime_lock f fn =
+let from = if Sys.win32 then Some (Dl.(dlopen ~filename:"opengl32.dll" ~flags:[ RTLD_NOW ])) else None
+
+let abi =
+try ignore (Ctypes.(Foreign.(foreign ~abi:Libffi_abi.stdcall "abs" (int @-> returning int))) 2) ; Libffi_abi.stdcall with
+Ctypes_static.Unsupported("FFI_STDCALL") ->
+Libffi_abi.default_abi
+
+let foreign ?stub ?check_errno ?release_runtime_lock f fn =
 foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn
 
 (* OpenGL 3.x bindings *)
