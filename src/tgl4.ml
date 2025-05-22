@@ -17,8 +17,12 @@ try ignore (Ctypes.(Foreign.(foreign ~abi:Libffi_abi.stdcall "abs" (int @-> retu
 Ctypes_static.Unsupported("FFI_STDCALL") ->
 Libffi_abi.default_abi
 
-let foreign ?stub ?check_errno ?release_runtime_lock f fn =
-foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn
+let foreign ?stub ?check_errno ?release_runtime_lock f fn x =
+let fp = foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn in
+try fp x 
+with _ -> failwith ("Could not load OpenGL function " ^ f)
+
+
 
 (* OpenGL 4.x bindings *)
 
