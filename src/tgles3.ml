@@ -17,10 +17,20 @@ try ignore (Ctypes.(Foreign.(foreign ~abi:Libffi_abi.stdcall "abs" (int @-> retu
 Ctypes_static.Unsupported("FFI_STDCALL") ->
 Libffi_abi.default_abi
 
+let wgl_get_proc_address name typ =
+let ftyp = Foreign.funptr_opt typ in
+match Ctypes.(Foreign.(foreign "wglGetProcAddress" (string @-> returning ftyp))) name with
+| None -> failwith ("Could not load OpenGL extension function " ^ name)
+| Some f -> f
+
 let foreign ?stub ?check_errno ?release_runtime_lock f fn x =
 let fp = foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn in
 try fp x 
-with _ -> failwith ("Could not load OpenGL function " ^ f)
+with _ -> 
+if Sys.win32 then 
+wgl_get_proc_address f fn x 
+else 
+failwith ("Could not load OpenGL function " ^ f)
 
 
 
