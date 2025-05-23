@@ -243,7 +243,7 @@ let pp_ml_module ~log ppf api =
      \  let fp = foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn in@,\
      \  if Sys.win32 then
      \    let wproc = wgl_get_proc_address f fn in@,\
-     \    (fun x -> try fp x with Dl.DL_error -> wproc x)@,\
+     \    (fun x -> try fp x with Dl.DL_error _ -> wproc x)@,\
      \  else fp @,@,\
      \  @,@,\
      (* %s bindings *)@,@,\
