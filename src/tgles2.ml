@@ -22,7 +22,7 @@ let abi =
 
 let wgl_get_proc_address name typ =
   let ftyp = Foreign.funptr_opt typ in
-  match Ctypes.(Foreign.(foreign "wglGetProcAddress" (string @-> returning ftyp))) name with
+  match Ctypes.(Foreign.(foreign ~abi ?from "wglGetProcAddress" (string @-> returning ftyp))) name with
   | None -> (fun _ -> failwith ("Could not resolve OpenGL procedure " ^ name))
   | Some f -> f
 
