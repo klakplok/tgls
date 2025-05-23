@@ -236,9 +236,14 @@ let pp_ml_module ~log ppf api =
      \  with Ctypes_static.Unsupported _ -> Libffi_abi.default_abi@,@,\
      let wgl_get_proc_address name typ =@,\
      \  let ftyp = Foreign.funptr_opt typ in@,\
-     \  match Ctypes.(Foreign.(foreign ~abi ?from \"wglGetProcAddress\" (string @-> returning ftyp))) name with@,\
-     \  | None -> (fun _ -> failwith (\"Could not resolve OpenGL procedure \" ^ name))@,\
-     \  | Some f -> f@,@,\
+     \  let cache = ref None (* Needs to be delayed after OpenGL initialization. *) in@,\
+     \  fun x ->@,\
+     \    match !cache with@,\
+     \    | Some f -> f x@,\
+     \    | None ->@,\
+     \      match Ctypes.(Foreign.(foreign ~abi ?from \"wglGetProcAddress\" (string @-> returning ftyp))) name with@,\
+     \      | None -> failwith (\"Could not resolve OpenGL procedure \" ^ name)@,\
+     \      | Some f -> cache := Some f ; f x@,@,\
      let foreign ?stub ?check_errno ?release_runtime_lock f fn =@,\
      \  let fp = foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn in@,\
      \  if Sys.win32 then
