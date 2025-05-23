@@ -23,13 +23,14 @@ let abi =
 let wgl_get_proc_address name typ =
   let ftyp = Foreign.funptr_opt typ in
   match Ctypes.(Foreign.(foreign "wglGetProcAddress" (string @-> returning ftyp))) name with
-  | None -> failwith ("Could not resolve OpenGL procedure " ^ name)
+  | None -> (fun _ -> failwith ("Could not resolve OpenGL procedure " ^ name))
   | Some f -> f
 
 let foreign ?stub ?check_errno ?release_runtime_lock f fn =
   let fp = foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn in
   if Sys.win32 then
-         fun x -> try fp x with exn -> wgl_get_proc_address f fn x
+         let wproc = wgl_get_proc_address f fn in
+    (fun x -> try fp x with Dl.DL_error -> wproc x)
   else fp 
 
   
