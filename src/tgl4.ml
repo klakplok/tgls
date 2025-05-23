@@ -29,7 +29,7 @@ let wgl_get_proc_address name typ =
 let foreign ?stub ?check_errno ?release_runtime_lock f fn =
   let fp = foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn in
   if Sys.win32 then
-         fun x -> try fp x with exn -> ignore (wgl_get_proc_address f fn x) ; raise exn 
+         fun x -> try fp x with exn -> wgl_get_proc_address f fn x
   else fp 
 
   
