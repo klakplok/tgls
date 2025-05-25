@@ -10,9 +10,49 @@
 open Ctypes
 open Foreign
 
-let abi = Libffi_abi.(if Sys.win32 then stdcall else default_abi)
-let foreign ?from ?stub ?check_errno ?release_runtime_lock f fn =
-foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn
+let abi = (* Auto-detect the platform FFI ABI using a simple standard C function. *)
+  if Sys.win32 then
+    try
+      ignore (Ctypes.(Foreign.(foreign ~abi:Libffi_abi.stdcall "abs" (int @-> returning int))) 2) ;
+      Libffi_abi.stdcall
+    with Ctypes_static.Unsupported _ -> Libffi_abi.default_abi
+  else Libffi_abi.default_abi
+
+let from =
+  if Sys.win32 then
+    try
+      Some (Dl.(dlopen ~filename:"opengl32.dll" ~flags:[ RTLD_NOW ]))
+    with _ ->
+      (* In case some setups don't have the standard [opengl32.dll],
+         don't prevent running by failing at toplevel. *)
+      None
+  else None
+
+let foreign ?stub ?check_errno ?release_runtime_lock f fn =
+  let fp = foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn in
+  if Sys.win32 then
+    (* In [opengl32.dll], non OpenGL 1.1 procedures must be looked up up via [wglGetProcAddress].
+       To simplify things, we don't hardcode the list but do a two-step auto-detection.
+       Some functions can only be resolved after OpenGL is initialized, so we delay the
+       lookup until the first call and cache the lookup result. *)
+    let cache = ref None in
+    fun x -> 
+      match !cache with
+      | Some f -> f x
+      | None ->
+        (* Catch failure of Foreign's delayed lookup. *)
+        try
+          let res = fp x in
+          cache := Some fp;
+          res
+        with Dl.DL_error _ ->
+          let ftyp = Foreign.funptr_opt fn in
+          match Ctypes.(Foreign.(foreign ~abi ?from "wglGetProcAddress" (string @-> returning ftyp))) f with
+          | None -> failwith ("Could not resolve OpenGL procedure " ^ f)
+          | Some fpp ->
+            cache := Some fpp ;
+            fpp x
+  else fp 
 
 (* OpenGL ES 2 bindings *)
 
