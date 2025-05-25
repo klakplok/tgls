@@ -243,7 +243,30 @@ let pp_ml_module ~log ppf api =
      \      None@,\
      \  else None@,@,\
      let foreign ?stub ?check_errno ?release_runtime_lock f fn =@,\
-       foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn@,@,\
+     \  let fp = foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn in@,\
+     \  if Sys.win32 then@,\
+     \    (* In [opengl32.dll], non OpenGL 1.1 procedures must be looked up up via [wglGetProcAddress].@,\
+     \       To simplify things, we don't hardcode the list but do a two-step auto-detection.@,\
+     \       Some functions can only be resolved after OpenGL is initialized, so we delay the@,\
+     \       lookup until the first call and cache the lookup result. *)@,\
+     \    let cache = ref None in@,\
+     \    fun x -> @,\
+     \      match !cache with@,\
+     \      | Some f -> f x@,\
+     \      | None ->@,\
+     \        (* Catch failure of Foreign's delayed lookup. *)@,\
+     \        try@,\
+     \          let res = fp x in@,\
+     \          cache := Some fp;@,\
+     \          res@,\
+     \        with Dl.DL_error _ ->@,\
+     \          let ftyp = Foreign.funptr_opt fn in@,\
+     \          match Ctypes.(Foreign.(foreign ~abi ?from \"wglGetProcAddress\" (string @-> returning ftyp))) f with@,\
+     \          | None -> failwith (\"Could not resolve OpenGL procedure \" ^ f)@,\
+     \          | Some fpp ->@,\
+     \            cache := Some fpp ;@,\
+     \            fpp x@,\
+     \  else fp @,@,\
      (* %s bindings *)@,@,\
      module %s = struct@,@,\
      \  (* Bigarrays *)@,@,\
