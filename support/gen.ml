@@ -226,7 +226,13 @@ let pp_ml_module ~log ppf api =
     "@[<v>\
      open Ctypes@,\
      open Foreign@,@,\
-     let abi = Libffi_abi.(if Sys.win32 then stdcall else default_abi)@,\
+     let abi = (* Auto-detect the platform FFI ABI using a simple standard C function. *)@,\
+     \  if Sys.win32 then@,\
+     \    try@,\
+     \      ignore (Ctypes.(Foreign.(foreign ~abi:Libffi_abi.stdcall \"abs\" (int @-> returning int))) 2) ;@,\
+     \      Libffi_abi.stdcall@,\
+     \    with Ctypes_static.Unsupported _ -> Libffi_abi.default_abi@,\
+     \  else Libffi_abi.default_abi@,@,\
      let foreign ?from ?stub ?check_errno ?release_runtime_lock f fn =@,\
        foreign ~abi ?from ?stub ?check_errno ?release_runtime_lock f fn@,@,\
      (* %s bindings *)@,@,\
